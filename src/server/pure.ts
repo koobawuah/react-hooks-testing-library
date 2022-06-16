@@ -12,8 +12,8 @@ function createServerRenderer<TProps, TResult>(
   { wrapper }: RendererOptions<TProps>
 ) {
   let renderProps: TProps | undefined
-  let hydrated = false
-  const container = document.createElement('div')
+  let container: HTMLDivElement | undefined
+  let serverOutput = ''
   const testHarness = createTestHarness(rendererProps, wrapper, false)
 
   return {
@@ -21,33 +21,32 @@ function createServerRenderer<TProps, TResult>(
       renderProps = props
       act(() => {
         try {
-          const serverOutput = ReactDOMServer.renderToString(testHarness(props))
-          container.innerHTML = serverOutput
+          serverOutput = ReactDOMServer.renderToString(testHarness(props))
         } catch (e: unknown) {
           rendererProps.setError(e as Error)
         }
       })
     },
     hydrate() {
-      if (hydrated) {
+      if (container) {
         throw new Error('The component can only be hydrated once')
       } else {
+        container.innerHTML = serverOutput
         act(() => {
-          ReactDOM.hydrate(testHarness(renderProps), container)
+          ReactDOM.hydrate(testHarness(renderProps), container || null)
         })
-        hydrated = true
       }
     },
     rerender(props?: TProps) {
-      if (!hydrated) {
+      if (!container) {
         throw new Error('You must hydrate the component before you can rerender')
       }
       act(() => {
-        ReactDOM.render(testHarness(props), container)
+        ReactDOM.render(testHarness(props), container || null)
       })
     },
     unmount() {
-      if (hydrated) {
+      if (typeof container !== 'undefined') {
         act(() => {
           ReactDOM.unmountComponentAtNode(container)
         })
